@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -175,6 +177,10 @@ public class PerformanceStatisticsSelfTest extends AbstractPerformanceStatistics
                 assertTrue(jobStartTime >= startTime);
                 assertTrue(duration >= 0);
                 assertFalse(timedOut);
+            }
+
+            @Override public void systemView(UUID id, String name, List<Map<String, String>> data) {
+                System.out.println("HERE!!!!!!!!!!!!!!!!!!!!!!!!!!");
             }
         });
 

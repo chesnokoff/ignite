@@ -25,12 +25,14 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,6 +57,7 @@ import static org.apache.ignite.internal.processors.performancestatistics.Operat
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.QUERY_PROPERTY;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.QUERY_READS;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.QUERY_ROWS;
+import static org.apache.ignite.internal.processors.performancestatistics.OperationType.SYSYTEM_VIEW;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.TASK;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.TX_COMMIT;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.cacheOperation;
@@ -289,6 +292,41 @@ public class FilePerformanceStatisticsReader {
 
             for (PerformanceStatisticsHandler hnd : curHnd)
                 hnd.query(nodeId, qryType, text, id, startTime, duration, success);
+
+            return true;
+        }
+        else if (opType == SYSYTEM_VIEW) {
+            boolean cached = buf.get() != 0;
+
+            if (buf.remaining() < 4)
+                return false;
+
+            int viewNameLen = buf.getInt();
+
+            if (buf.remaining() < viewNameLen)
+                return false;
+
+            String viewName = readString(buf, viewNameLen);
+
+            int rowNumber = buf.getInt();
+            List<Map<String, String>> data = new ArrayList<>(rowNumber);
+            for (int i = 0; i < rowNumber; i++) {
+                data.add(new TreeMap<>());
+                for (int rowSize = buf.getInt(); rowSize > 0;) {
+                    cached = buf.get() != 0;
+                    int keySize = buf.getInt();
+                    String key = readString(buf, keySize);
+                    cached = buf.get() != 0;
+                    int valueSize = buf.getInt();
+                    String value = readString(buf, valueSize);
+                    rowSize -= 1 + 4 + keySize + 1 + 4 + valueSize;
+
+                    data.get(i).put(key, value);
+                }
+            }
+
+            for (PerformanceStatisticsHandler hnd : curHnd)
+                hnd.systemView(nodeId, viewName, data);
 
             return true;
         }

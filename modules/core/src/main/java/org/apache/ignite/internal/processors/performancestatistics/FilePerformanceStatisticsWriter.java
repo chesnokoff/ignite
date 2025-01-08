@@ -21,8 +21,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,6 +61,7 @@ import static org.apache.ignite.internal.processors.performancestatistics.Operat
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.QUERY_PROPERTY;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.QUERY_READS;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.QUERY_ROWS;
+import static org.apache.ignite.internal.processors.performancestatistics.OperationType.SYSYTEM_VIEW;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.TASK;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.TX_COMMIT;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.TX_ROLLBACK;
@@ -264,6 +268,32 @@ public class FilePerformanceStatisticsWriter {
             buf.putLong(startTime);
             buf.putLong(duration);
             buf.put(success ? (byte)1 : 0);
+        });
+    }
+
+    public void systemView(String view, List<Map<String, Object>> rows) {
+        int recSize = 1 + 4 + view.getBytes().length + 4 + 4 * rows.size();
+        List<Integer> rowsSize = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            int curRowSize = 0;
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                curRowSize += 1 + 4 + entry.getKey().getBytes().length + 1 + 4 + Objects.toString(entry.getValue()).getBytes().length;
+            }
+            recSize += curRowSize;
+            rowsSize.add(curRowSize);
+        }
+        doWrite(SYSYTEM_VIEW, recSize, buf -> {
+            writeString(buf, view, false);
+            buf.putInt(rows.size());
+
+            for (int i = 0; i < rows.size(); i++) {
+                buf.putInt(rowsSize.get(i));
+                Map<String, Object> row = rows.get(i);
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    writeString(buf, entry.getKey(), false);
+                    writeString(buf, Objects.toString(entry.getValue()).toString(), false);
+                }
+            }
         });
     }
 

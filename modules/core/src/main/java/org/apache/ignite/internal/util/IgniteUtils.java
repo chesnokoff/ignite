@@ -9993,7 +9993,7 @@ public abstract class IgniteUtils {
         }
 
         if (delIfExist && dir.exists()) {
-            if (!U.delete(dir))
+            if (!path.equals("perf_stat") && !U.delete(dir))
                 throw new IgniteCheckedException("Failed to delete directory: " + dir);
         }
 

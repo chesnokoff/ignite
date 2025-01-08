@@ -91,7 +91,9 @@ public enum OperationType {
     QUERY_ROWS(20),
 
     /** Custom query property. */
-    QUERY_PROPERTY(21);
+    QUERY_PROPERTY(21),
+
+    SYSYTEM_VIEW(22);
 
     /** Cache operations. */
     public static final EnumSet<OperationType> CACHE_OPS = EnumSet.of(CACHE_GET, CACHE_PUT, CACHE_REMOVE,
@@ -174,6 +176,15 @@ public enum OperationType {
      */
     public static int queryRecordSize(int textLen, boolean cached) {
         return 1 + (cached ? 4 : 4 + textLen) + 1 + 8 + 8 + 8 + 1;
+    }
+
+    /**
+     * @param textLen Query text length.
+     * @param cached {@code True} if query text cached.
+     * @return Query record size.
+     */
+    public static int systemViewRecordSize(int textLen, boolean cached) {
+        return 4 + textLen;
     }
 
     /** @return Query reads record size. */

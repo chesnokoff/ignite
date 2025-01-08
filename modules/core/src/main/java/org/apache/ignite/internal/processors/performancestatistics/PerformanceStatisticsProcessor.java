@@ -20,6 +20,9 @@ package org.apache.ignite.internal.processors.performancestatistics;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EventListener;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.IgniteCheckedException;
@@ -41,6 +44,7 @@ import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
 import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.spi.systemview.view.SystemView;
 import org.jetbrains.annotations.Nullable;
 
 import static org.apache.ignite.internal.processors.metastorage.DistributedMetaStorage.IGNITE_INTERNAL_KEY_PREFIX;
@@ -170,6 +174,22 @@ public class PerformanceStatisticsProcessor extends GridProcessorAdapter {
      */
     public void query(GridCacheQueryType type, String text, long id, long startTime, long duration, boolean success) {
         write(writer -> writer.query(type, text, id, startTime, duration, success));
+    }
+
+    public<R> void systemView() {
+        List<String> views = List.of("caches", "tasks", "jobs", "tables");
+        for (String viewName : views) {
+            SystemView<R> view = ctx.systemView().view(viewName);
+            AttributeToMapVisitor visitor = new AttributeToMapVisitor();
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (R row : view) {
+                Map<String, Object> data = new TreeMap<>();
+                visitor.data(data);
+                view.walker().visitAll(row, visitor);
+                rows.add(data);
+            }
+            write(writer -> writer.systemView(viewName , rows));
+        }
     }
 
     /**
@@ -370,6 +390,7 @@ public class PerformanceStatisticsProcessor extends GridProcessorAdapter {
             lsnrs.forEach(PerformanceStatisticsStateListener::onStarted);
 
             log.info("Performance statistics writer started.");
+            systemView();
         }
         catch (Exception e) {
             log.error("Failed to start performance statistics writer.", e);
