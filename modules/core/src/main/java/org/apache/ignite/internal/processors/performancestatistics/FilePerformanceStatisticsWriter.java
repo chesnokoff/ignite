@@ -272,29 +272,39 @@ public class FilePerformanceStatisticsWriter {
     }
 
     public void systemView(String view, List<Map<String, Object>> rows) {
-        int recSize = 1 + 4 + view.getBytes().length + 4 + 4 * rows.size();
-        List<Integer> rowsSize = new ArrayList<>(rows.size());
+        List<String> titles = getTitles(rows);
+        int columnsNumber = titles.size();
+        int rowsNumber = rows.size();
+
+        int recSize = 1 + 4 + view.getBytes().length + 4 + 4;
+
         for (Map<String, Object> row : rows) {
             int curRowSize = 0;
             for (Map.Entry<String, Object> entry : row.entrySet()) {
-                curRowSize += 1 + 4 + entry.getKey().getBytes().length + 1 + 4 + Objects.toString(entry.getValue()).getBytes().length;
+
+                curRowSize += 1 + 4 + Objects.toString(entry.getValue()).getBytes().length;
             }
             recSize += curRowSize;
-            rowsSize.add(curRowSize);
         }
         doWrite(SYSYTEM_VIEW, recSize, buf -> {
             writeString(buf, view, false);
-            buf.putInt(rows.size());
+            buf.putInt(columnsNumber);
+            buf.putInt(rowsNumber);
 
             for (int i = 0; i < rows.size(); i++) {
-                buf.putInt(rowsSize.get(i));
                 Map<String, Object> row = rows.get(i);
                 for (Map.Entry<String, Object> entry : row.entrySet()) {
                     writeString(buf, entry.getKey(), false);
-                    writeString(buf, Objects.toString(entry.getValue()).toString(), false);
+                    writeString(buf, Objects.toString(entry.getValue()), false);
                 }
             }
         });
+    }
+
+    private List<String> getTitles(List<Map<String, Object>> rows) {
+        if (rows.isEmpty()) return Collections.emptyList();
+        List<String> titles = new ArrayList<>(rows.get(0).keySet());
+        return titles;
     }
 
     /**
