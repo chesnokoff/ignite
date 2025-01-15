@@ -44,8 +44,10 @@ import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
 import org.apache.ignite.internal.util.GridConcurrentHashSet;
 import org.apache.ignite.internal.util.GridIntIterator;
 import org.apache.ignite.internal.util.GridIntList;
+import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.util.worker.GridWorker;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.thread.IgniteThread;
 
@@ -271,32 +273,27 @@ public class FilePerformanceStatisticsWriter {
         });
     }
 
-    public void systemView(String view, List<Map<String, Object>> rows) {
-        List<String> titles = getTitles(rows);
-        int columnsNumber = titles.size();
-        int rowsNumber = rows.size();
+    public void systemView(String view, Map<String, Object> row) {
+        boolean cachedName = cacheIfPossible(view);
 
-        int recSize = 1 + 4 + view.getBytes().length + 4 + 4;
+        int recSize = 1 + (cachedName ? 4 : 4 + view.getBytes().length) + 4;
+        List<IgnitePair<IgniteBiTuple<String, Boolean>>> cachedRow = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : row.entrySet()) {
+            IgniteBiTuple<String, Boolean> cachedKey = new IgniteBiTuple<>(entry.getKey(), cacheIfPossible(entry.getKey()));
+            recSize += 1 + (cachedKey.getValue() ? 4 : 4 + cachedKey.getKey().getBytes().length);
 
-        for (Map<String, Object> row : rows) {
-            int curRowSize = 0;
-            for (Map.Entry<String, Object> entry : row.entrySet()) {
+            IgniteBiTuple<String, Boolean> cachedValue = new IgniteBiTuple<>(Objects.toString(entry.getValue()), cacheIfPossible(Objects.toString(entry.getValue())));
+            recSize += 1 + (cachedValue.getValue() ? 4 : 4 + cachedValue.getKey().getBytes().length);
 
-                curRowSize += 1 + 4 + Objects.toString(entry.getValue()).getBytes().length;
-            }
-            recSize += curRowSize;
+            cachedRow.add(new IgnitePair<>(cachedKey, cachedValue));
         }
         doWrite(SYSYTEM_VIEW, recSize, buf -> {
-            writeString(buf, view, false);
-            buf.putInt(columnsNumber);
-            buf.putInt(rowsNumber);
+            writeString(buf, view, cachedName);
+            buf.putInt(row.size());
 
-            for (int i = 0; i < rows.size(); i++) {
-                Map<String, Object> row = rows.get(i);
-                for (Map.Entry<String, Object> entry : row.entrySet()) {
-                    writeString(buf, entry.getKey(), false);
-                    writeString(buf, Objects.toString(entry.getValue()), false);
-                }
+            for (IgnitePair<IgniteBiTuple<String, Boolean>> pair : cachedRow) {
+                writeString(buf, pair.getKey().getKey(), pair.getKey().getValue());
+                writeString(buf, pair.getValue().getKey(), pair.getValue().getValue());
             }
         });
     }

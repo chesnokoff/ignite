@@ -25,14 +25,12 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -296,33 +294,17 @@ public class FilePerformanceStatisticsReader {
             return true;
         }
         else if (opType == SYSYTEM_VIEW) {
-            boolean cached = buf.get() != 0;
-
-            if (buf.remaining() < 4)
+            String viewName = readCacheableString(buf);
+            if (viewName == null)
                 return false;
 
-            int viewNameLen = buf.getInt();
+            int attributesNumber = buf.getInt();
+            Map<String, String> data = new HashMap<>();
+            for (int i = 0; i < attributesNumber; i++) {
+                String key = readCacheableString(buf);
+                String value = readCacheableString(buf);
 
-            if (buf.remaining() < viewNameLen)
-                return false;
-
-            String viewName = readString(buf, viewNameLen);
-
-            int rowNumber = buf.getInt();
-            List<Map<String, String>> data = new ArrayList<>(rowNumber);
-            for (int i = 0; i < rowNumber; i++) {
-                data.add(new TreeMap<>());
-                for (int rowSize = buf.getInt(); rowSize > 0;) {
-                    cached = buf.get() != 0;
-                    int keySize = buf.getInt();
-                    String key = readString(buf, keySize);
-                    cached = buf.get() != 0;
-                    int valueSize = buf.getInt();
-                    String value = readString(buf, valueSize);
-                    rowSize -= 1 + 4 + keySize + 1 + 4 + valueSize;
-
-                    data.get(i).put(key, value);
-                }
+                data.put(key, value);
             }
 
             for (PerformanceStatisticsHandler hnd : curHnd)

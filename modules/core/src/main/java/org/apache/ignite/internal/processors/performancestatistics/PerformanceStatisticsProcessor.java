@@ -181,14 +181,12 @@ public class PerformanceStatisticsProcessor extends GridProcessorAdapter {
         for (String viewName : views) {
             SystemView<R> view = ctx.systemView().view(viewName);
             AttributeToMapVisitor visitor = new AttributeToMapVisitor();
-            List<Map<String, Object>> rows = new ArrayList<>();
             for (R row : view) {
                 Map<String, Object> data = new TreeMap<>();
                 visitor.data(data);
                 view.walker().visitAll(row, visitor);
-                rows.add(data);
+                write(writer -> writer.systemView(viewName , data));
             }
-            write(writer -> writer.systemView(viewName , rows));
         }
     }
 
