@@ -87,6 +87,12 @@ import static org.apache.ignite.internal.processors.performancestatistics.Operat
  * To iterate over records use {@link FilePerformanceStatisticsReader}.
  */
 public class FilePerformanceStatisticsWriter {
+    /** File writer thread name. */
+    static final String WRITER_THREAD_NAME = "performance-statistics-writer";
+
+    /** File writer thread name. */
+    static final String SYSTEM_VIEW_WRITER_THREAD_NAME = "performance-statistics-system-view-writer";
+
     /** Directory to store performance statistics files. Placed under Ignite work directory. */
     public static final String PERF_STAT_DIR = "perf_stat";
 
@@ -465,9 +471,6 @@ public class FilePerformanceStatisticsWriter {
 
     /** Worker to write to performance statistics file. */
     private static class FileWriter extends GridWorker {
-        /** File writer thread name. */
-        static final String WRITER_THREAD_NAME = "performance-statistics-writer";
-
         /** */
         private StringCache strCache = new StringCache();
 
@@ -657,9 +660,6 @@ public class FilePerformanceStatisticsWriter {
 
     /** Worker to write to performance statistics file. */
     private class SystemViewFileWriter extends GridWorker {
-        /** File writer thread name. */
-        static final String WRITER_THREAD_NAME = "performance-statistics-system-view-writer";
-
         /** */
         private StringCache strCache = new StringCache();
 
@@ -679,7 +679,7 @@ public class FilePerformanceStatisticsWriter {
          * @param ctx Kernal context.
          */
         SystemViewFileWriter(GridKernalContext ctx) throws IgniteCheckedException, IOException {
-            super(ctx.igniteInstanceName(), WRITER_THREAD_NAME, ctx.log(SystemViewFileWriter.class));
+            super(ctx.igniteInstanceName(), SYSTEM_VIEW_WRITER_THREAD_NAME, ctx.log(SystemViewFileWriter.class));
 
             sysViewMgr = ctx.systemView();
 
