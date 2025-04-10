@@ -152,12 +152,12 @@ public class FilePerformanceStatisticsWriter {
         });
     }
 
-    /** */
+    /** Starts collecting performance statistics. */
     public void start() {
         U.startThreads(List.of(new IgniteThread(fileWriter), new IgniteThread(sysViewFileWriter)));
     }
 
-    /** */
+    /** Stops collecting performance statistics. */
     public void stop() {
         U.awaitForWorkersStop(List.of(fileWriter, sysViewFileWriter), true, log);
     }
@@ -344,11 +344,6 @@ public class FilePerformanceStatisticsWriter {
         });
     }
 
-    /** @return Performance statistics file. */
-    File file() {
-        return fileWriter.file;
-    }
-
     /**
      * @param beforeLockDuration Before lock duration.
      * @param lockWaitDuration Lock wait duration.
@@ -430,8 +425,8 @@ public class FilePerformanceStatisticsWriter {
     }
 
     /**
-     * @param buf    Buffer to write to.
-     * @param str    String to write.
+     * @param buf Buffer to write to.
+     * @param str String to write.
      * @param cached {@code True} if string cached.
      */
     static void writeString(ByteBuffer buf, String str, boolean cached) {
