@@ -101,10 +101,10 @@ public class OsDiscoveryNodeValidationProcessor extends GridProcessorAdapter imp
     }
 
     /** Checks if versions has same major, minor and maintenance versions. */
-    private boolean versionsMatch(IgniteProductVersion locVer, IgniteProductVersion rmtVer) {
-        if (locVer == null || rmtVer == null)
+    private boolean versionsMatch(IgniteProductVersion ver, IgniteProductVersion ver1) {
+        if (ver == null || ver1 == null)
             return false;
 
-        return locVer.major() == rmtVer.major() && locVer.minor() == rmtVer.minor() && locVer.maintenance() == rmtVer.maintenance();
+        return ver.major() == ver1.major() && ver.minor() == ver1.minor() && ver.maintenance() == ver1.maintenance();
     }
 }
