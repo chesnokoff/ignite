@@ -349,7 +349,7 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     * @param ver Version for rolling upgrade support.
+     * @param ver Version for rolling upgrade support. If null, then rolling upgrade support is disabled.
      */
     private void allowRollingUpgradeVersionCheck(IgniteEx grid, String ver) throws IgniteCheckedException {
         if (ver == null) {
