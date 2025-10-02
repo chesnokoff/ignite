@@ -71,45 +71,44 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
     /** */
     @Test
     public void testTwoConflictVersions() {
-        testConflictVersions("2.18.0", "2.16.0", false);
-        testConflictVersions("2.19.0", "2.17.6", false);
-        testConflictVersions("2.20.0", "2.22.2", false);
-        testConflictVersions("2.21.0", "2.23.1", false);
+        testConflictVersions("2.18.0", "2.16.0", false, "2.18.1");
+        testConflictVersions("2.18.0", "2.18.1", false, "2.19.0");
+        testConflictVersions("2.18.0", "2.18.1", false);
     }
 
     /** */
     @Test
     public void testThreeConflictVersions() {
-        testConflictVersions("2.18.0", "2.18.2", "2.16.0", false);
+        testConflictVersions("2.18.0", "2.18.2", "2.18.0", false, "2.18.1");
         testConflictVersions("2.18.0", "2.18.3", "2.20.0", false);
 
         testConflictVersions("2.18.0", "2.19.2", "2.17.0", false);
-        testConflictVersions("2.18.0", "2.17.3", "2.19.0", false);
+        testConflictVersions("2.18.0", "2.17.3", "2.19.0", false, "2.19.0");
 
-        testConflictVersions("2.18.0", "2.19.2", "2.20.0", false);
+        testConflictVersions("2.18.0", "2.19.2", "2.20.0", false, "2.19.2");
         testConflictVersions("2.18.0", "2.17.3", "2.16.0", false);
     }
 
     /** */
     @Test
     public void testTwoConflictVersionsWithClient() {
-        testConflictVersions("2.18.0", "2.16.0", true);
+        testConflictVersions("2.18.0", "2.18.1", true, "2.19.0");
         testConflictVersions("2.19.0", "2.17.6", true);
         testConflictVersions("2.20.0", "2.22.2", true);
-        testConflictVersions("2.21.0", "2.23.1", true);
+        testConflictVersions("2.21.0", "2.23.1", true, "2.22.0");
     }
 
     /** */
     @Test
     public void testThreeConflictVersionsWithClients() {
         testConflictVersions("2.18.0", "2.18.2", "2.16.0", true);
-        testConflictVersions("2.18.0", "2.18.3", "2.20.0", true);
+        testConflictVersions("2.18.0", "2.18.3", "2.20.0", true, "2.18.3");
 
-        testConflictVersions("2.18.0", "2.19.2", "2.17.0", true);
+        testConflictVersions("2.18.0", "2.18.0", "2.19.0", true, "2.18.1");
         testConflictVersions("2.18.0", "2.17.3", "2.19.0", true);
 
-        testConflictVersions("2.18.0", "2.19.2", "2.20.0", true);
-        testConflictVersions("2.18.0", "2.17.3", "2.16.0", true);
+        testConflictVersions("2.18.0", "2.19.2", "2.20.0", true, "2.19.2");
+        testConflictVersions("2.18.0", "2.19.3", "2.19.3", true, "2.19.4");
     }
 
     /** */
@@ -143,7 +142,7 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
     public void testThreeCompatibleVersionsWithClients() throws Exception {
         testCompatibleVersions("2.18.0", "2.18.1", "2.18.1", true, "2.18.1");
         testCompatibleVersions("2.18.0", "2.18.0", "2.19.0", true, "2.19.0");
-        testCompatibleVersions("2.18.0", "2.19.0", "2.19.0", true, "2.19.0");
+        testCompatibleVersions("2.18.0", "2.19.0", "2.18.0", true, "2.19.0");
         testCompatibleVersions("2.18.1", "2.18.1", "2.18.1", true, null);
     }
 
@@ -241,10 +240,17 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
         assertTrue(Ignition.allGrids().size() == 4);
     }
 
-    /** Tests that starting a node with rejected version fails with remote rejection. */
+    /** */
     private void testConflictVersions(String acceptedVer, String rejVer, boolean isClient) {
+        testConflictVersions(acceptedVer, rejVer, isClient, null);
+    }
+
+    /** Tests that starting a node with rejected version fails with remote rejection. */
+    private void testConflictVersions(String acceptedVer, String rejVer, boolean isClient, String rollUpVerCheck) {
         ThrowableSupplier<IgniteEx, Exception> sup = () -> {
             IgniteEx ign = startGrid(0, acceptedVer, false);
+
+            allowRollingUpgradeVersionCheck(ign, rollUpVerCheck);
 
             startGrid(1, rejVer, isClient);
 
@@ -252,14 +258,19 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
         };
 
         assertRemoteRejected(sup);
+    }
 
-        stopAllGrids();
+    /** */
+    private void testConflictVersions(String acceptedVer1, String acceptedVer2, String rejVer, boolean isClient) {
+        testConflictVersions(acceptedVer1, acceptedVer2, rejVer, isClient, null);
     }
 
     /** Checks that the third grid is not compatible. */
-    private void testConflictVersions(String acceptedVer1, String acceptedVer2, String rejVer, boolean isClient) {
+    private void testConflictVersions(String acceptedVer1, String acceptedVer2, String rejVer, boolean isClient, String rollUpVerCheck) {
         ThrowableSupplier<IgniteEx, Exception> sup = () -> {
             IgniteEx ign = startGrid(0, acceptedVer1, false);
+
+            allowRollingUpgradeVersionCheck(ign, rollUpVerCheck);
 
             startGrid(1, acceptedVer2, isClient);
 
@@ -269,8 +280,6 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
         };
 
         assertRemoteRejected(sup);
-
-        stopAllGrids();
     }
 
     /** Checks that remote node rejected due to incompatible version. */
