@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.processors.rollingupgrade;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -55,6 +56,10 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
     /** Key for the distributed property that holds current and target versions. */
     private static final String ROLLING_UPGRADE_VERSIONS_KEY = IGNITE_INTERNAL_KEY_PREFIX + "rolling.upgrade.versions";
 
+    /** Key for the distributed property that holds rolling upgrade compatibility matrix. */
+    private static final String ROLLING_UPGRADE_COMPATIBILITY_KEY = IGNITE_INTERNAL_KEY_PREFIX
+        + "rolling.upgrade.compatibility.matrix";
+
     /** Metastorage with the write access. */
     @Nullable private volatile DistributedMetaStorage metastorage;
 
@@ -75,6 +80,9 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
 
     /** Pair with current and target versions. {@code null} when rolling upgrade is disabled. */
     @Nullable private volatile IgnitePair<IgniteProductVersion> rollUpVers;
+
+    /** Rolling upgrade compatibility matrix. */
+    @Nullable private volatile RollingUpgradeCompatibilityMatrix compatibilityMatrix;
 
     /**
      * @param ctx Context.
@@ -114,6 +122,8 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
             @Override public void onReadyForRead(ReadableDistributedMetaStorage metastorage) {
                 try {
                     rollUpVers = metastorage.read(ROLLING_UPGRADE_VERSIONS_KEY);
+
+                    compatibilityMatrix = metastorage.read(ROLLING_UPGRADE_COMPATIBILITY_KEY);
                 }
                 catch (IgniteCheckedException e) {
                     throw new IgniteException(e);
@@ -123,6 +133,9 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
                 metastorage.listen(ROLLING_UPGRADE_VERSIONS_KEY::equals, (key, oldVal, newVal) -> {
                     rollUpVers = (IgnitePair<IgniteProductVersion>)newVal;
                 });
+
+                metastorage.listen(ROLLING_UPGRADE_COMPATIBILITY_KEY::equals, (key, oldVal, newVal) ->
+                    compatibilityMatrix = (RollingUpgradeCompatibilityMatrix)newVal);
             }
         });
     }
@@ -227,6 +240,25 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
     }
 
     /**
+     * Updates compatibility matrix for rolling upgrade rules.
+     *
+     * @param rules New compatibility rules.
+     * @throws IgniteCheckedException If matrix cannot be stored.
+     */
+    public void updateCompatibilityRules(Collection<RollingUpgradeCompatibilityRule> rules) throws IgniteCheckedException {
+        ctx.security().authorize(SecurityPermission.ADMIN_ROLLING_UPGRADE);
+
+        if (metastorage == null)
+            throw new IgniteCheckedException("Metastorage is not ready yet. Try again later");
+
+        RollingUpgradeCompatibilityMatrix newMatrix = RollingUpgradeCompatibilityMatrix.from(rules);
+
+        metastorage.write(ROLLING_UPGRADE_COMPATIBILITY_KEY, newMatrix);
+
+        compatibilityMatrix = newMatrix;
+    }
+
+    /**
      * Disables rolling upgrade.
      * This method can only be called on coordinator node.
      *
@@ -303,6 +335,13 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
     }
 
     /**
+     * Returns rolling upgrade compatibility matrix.
+     */
+    @Nullable public RollingUpgradeCompatibilityMatrix compatibilityMatrix() {
+        return compatibilityMatrix;
+    }
+
+    /**
      * Checks cur and target versions.
      *
      * @param cur Current cluster version.
@@ -324,26 +363,7 @@ public class RollingUpgradeProcessor extends GridProcessorAdapter implements Dis
                 oldVerPair.get1() + " , " + oldVerPair.get2());
         }
 
-        if (force) {
-            if (log.isInfoEnabled())
-                log.info("Skipping version compatibility check for rolling upgrade due to force flag "
-                    + "[currentVer=" + cur + ", targetVer=" + target + ']');
-
-            return true;
-        }
-
-        if (cur.major() != target.major())
-            throw new IgniteCheckedException("Major versions are different");
-
-        if (cur.minor() != target.minor()) {
-            if (target.minor() == cur.minor() + 1 && target.maintenance() == 0)
-                return true;
-
-            throw new IgniteCheckedException("Minor version can only be incremented by 1");
-        }
-
-        if (cur.maintenance() + 1 != target.maintenance())
-            throw new IgniteCheckedException("Patch version can only be incremented by 1");
+        RollingUpgradeCompatibilityChecker.validate(cur, target, force, compatibilityMatrix, log);
 
         return true;
     }
