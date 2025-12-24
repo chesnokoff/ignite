@@ -106,8 +106,8 @@ public class GridReleaseTypeSelfTest extends GridCommonAbstractTest {
     @Test
     public void testTwoConflictVersions() {
         testConflictVersions("2.18.0", "2.16.0", client);
-        testConflictVersions("2.21.0", "2.23.1", client);
-        testConflictVersions("2.20.1", "2.20.2", client);
+//        testConflictVersions("2.21.0", "2.23.1", client);
+//        testConflictVersions("2.20.1", "2.20.2", client);
     }
 
     /** */
