@@ -6638,7 +6638,15 @@ class ServerImpl extends TcpDiscoveryImpl {
                         }
                     }
 
-                    if (!Arrays.equals(buf, U.IGNITE_HEADER)) {
+                    if (!Arrays.equals(buf, U.IGNITE_HEADER_V2)) {
+                        if (Arrays.equals(buf, U.IGNITE_HEADER_V1)) {
+                            if (log.isDebugEnabled())
+                                log.debug("Old protocol version detected, check Ignite version [locAddr="
+                                    + sock.getLocalSocketAddress() + "]");
+
+                            return;
+                        }
+
                         if (log.isDebugEnabled())
                             log.debug("Unknown connection detected (is some other software connecting to " +
                                 "this Ignite port?" +
