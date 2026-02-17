@@ -21,15 +21,20 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
+import javax.cache.configuration.FactoryBuilder;
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheLoaderException;
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheEntryProcessor;
+import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.util.GridIntList;
@@ -50,6 +55,7 @@ import static org.apache.ignite.internal.processors.performancestatistics.Operat
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_GET_AND_REMOVE;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_INVOKE;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_INVOKE_ALL;
+import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_LOAD;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_LOCK;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_PUT;
 import static org.apache.ignite.internal.processors.performancestatistics.OperationType.CACHE_PUT_ALL;
@@ -109,7 +115,12 @@ public class PerformanceStatisticsSelfTest extends AbstractPerformanceStatistics
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        cfg.setCacheConfiguration(defaultCacheConfiguration());
+        CacheConfiguration<Object, Object> ccfg = defaultCacheConfiguration();
+
+        ccfg.setReadThrough(true);
+        ccfg.setCacheLoaderFactory(FactoryBuilder.factoryOf(TestCacheLoader.class));
+
+        cfg.setCacheConfiguration(ccfg);
 
         return cfg;
     }
@@ -199,6 +210,11 @@ public class PerformanceStatisticsSelfTest extends AbstractPerformanceStatistics
         checkCacheOperation(CACHE_GET, cache -> cache.get(1));
         checkCacheOperation(CACHE_GET, cache -> cache.getAsync(2).get());
 
+        checkCacheOperation(CACHE_LOAD, cache -> {
+            cache.remove(2000);
+            cache.get(2000);
+        });
+
         checkCacheOperation(CACHE_GET_AND_PUT, cache -> cache.getAndPut(1, 1));
         checkCacheOperation(CACHE_GET_AND_PUT, cache -> cache.getAndPutAsync(2, 2).get());
 
@@ -280,6 +296,20 @@ public class PerformanceStatisticsSelfTest extends AbstractPerformanceStatistics
         checkTx(true);
 
         checkTx(false);
+    }
+
+    /** Test cache loader. */
+    public static class TestCacheLoader implements CacheLoader<Object, Object> {
+        /** {@inheritDoc} */
+        @Override public Object load(Object key) throws CacheLoaderException {
+            return key;
+        }
+
+        /** {@inheritDoc} */
+        @Override public Map<Object, Object> loadAll(Iterable<? extends Object> keys)
+            throws CacheLoaderException {
+            throw new UnsupportedOperationException();
+        }
     }
 
     /** @param commited {@code True} if check transaction commited. */

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.processors.cache.GridCacheManagerAdapter;
 import org.apache.ignite.internal.processors.cache.KeyCacheObject;
 import org.apache.ignite.internal.processors.cache.transactions.IgniteInternalTx;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
+import org.apache.ignite.internal.processors.performancestatistics.OperationType;
 import org.apache.ignite.internal.util.GridEmptyIterator;
 import org.apache.ignite.internal.util.GridLeanMap;
 import org.apache.ignite.internal.util.GridSetWrapper;
@@ -323,6 +324,11 @@ public abstract class GridCacheStoreManagerAdapter extends GridCacheManagerAdapt
 
             Object val = null;
 
+            long start = 0;
+
+            if (cctx.statisticsEnabled())
+                start = U.currentTimeMillis();
+
             try {
                 val = singleThreadGate.load(storeKey);
 
@@ -338,6 +344,13 @@ public abstract class GridCacheStoreManagerAdapter extends GridCacheManagerAdapt
                 throw new IgniteCheckedException(new CacheLoaderException(e));
             }
             finally {
+                if (cctx.statisticsEnabled())
+                    cctx.kernalContext().performanceStatistics().cacheOperation(
+                        OperationType.CACHE_LOAD,
+                        cctx.cacheId(),
+                        start,
+                        U.currentTimeMillis() - start);
+
                 IgniteInternalTx tx0 = tx;
 
                 if (tx0 != null && (tx0.dht() && tx0.local()))
@@ -454,6 +467,11 @@ public abstract class GridCacheStoreManagerAdapter extends GridCacheManagerAdapt
 
             boolean threwEx = true;
 
+            long start = 0;
+
+            if (cctx.statisticsEnabled())
+                start = U.currentTimeMillis();
+
             try {
                 IgniteBiInClosure<Object, Object> c = new CI2<Object, Object>() {
                     @Override public void apply(Object k, Object val) {
@@ -494,6 +512,13 @@ public abstract class GridCacheStoreManagerAdapter extends GridCacheManagerAdapt
                 throw new IgniteCheckedException(new CacheLoaderException(e));
             }
             finally {
+                if (cctx.statisticsEnabled())
+                    cctx.kernalContext().performanceStatistics().cacheOperation(
+                        OperationType.CACHE_LOAD_ALL,
+                        cctx.cacheId(),
+                        start,
+                        U.currentTimeMillis() - start);
+
                 sessionEnd0(tx, threwEx);
             }
 
@@ -511,6 +536,11 @@ public abstract class GridCacheStoreManagerAdapter extends GridCacheManagerAdapt
             sessionInit0(null, StoreOperation.READ, false);
 
             boolean threwEx = true;
+
+            long start = 0;
+
+            if (cctx.statisticsEnabled())
+                start = U.currentTimeMillis();;
 
             try {
                 store.loadCache(new IgniteBiInClosure<Object, Object>() {
@@ -542,6 +572,13 @@ public abstract class GridCacheStoreManagerAdapter extends GridCacheManagerAdapt
                 throw new IgniteCheckedException(new CacheLoaderException(e));
             }
             finally {
+                if (cctx.statisticsEnabled())
+                    cctx.kernalContext().performanceStatistics().cacheOperation(
+                        OperationType.CACHE_LOAD_CACHE,
+                        cctx.cacheId(),
+                        start,
+                        U.currentTimeMillis() - start);
+
                 sessionEnd0(null, threwEx);
             }
 
