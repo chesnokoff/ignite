@@ -105,13 +105,22 @@ public enum OperationType {
     /** System view row. */
     SYSTEM_VIEW_ROW(25),
 
+    /** Cache load from third-party store. */
+    CACHE_LOAD(26),
+
+    /** Cache bulk load from third-party store. */
+    CACHE_LOAD_ALL(27),
+
+    /** Cache load cache from third-party store. */
+    CACHE_LOAD_CACHE(28),
+
     /** Version. */
     VERSION(255);
 
     /** Cache operations. */
     public static final EnumSet<OperationType> CACHE_OPS = EnumSet.of(CACHE_GET, CACHE_PUT, CACHE_REMOVE,
         CACHE_GET_AND_PUT, CACHE_GET_AND_REMOVE, CACHE_INVOKE, CACHE_LOCK, CACHE_GET_ALL, CACHE_PUT_ALL,
-        CACHE_REMOVE_ALL, CACHE_INVOKE_ALL, CACHE_PUT_ALL_CONFLICT, CACHE_REMOVE_ALL_CONFLICT);
+        CACHE_REMOVE_ALL, CACHE_INVOKE_ALL, CACHE_PUT_ALL_CONFLICT, CACHE_REMOVE_ALL_CONFLICT, CACHE_LOAD, CACHE_LOAD_ALL, CACHE_LOAD_CACHE);
 
     /** Transaction operations. */
     public static final EnumSet<OperationType> TX_OPS = EnumSet.of(TX_COMMIT, TX_ROLLBACK);
