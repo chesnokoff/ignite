@@ -295,6 +295,7 @@ import org.apache.ignite.internal.processors.query.schema.message.SchemaOperatio
 import org.apache.ignite.internal.processors.query.schema.message.SchemaOperationStatusMessageSerializer;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsColumnData;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsDecimalMessage;
+import org.apache.ignite.internal.processors.query.stat.messages.StatisticsDecimalMessageSerializer;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsKeyMessage;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsObjectData;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsRequest;
@@ -498,7 +499,7 @@ public class GridIoMessageFactory implements MessageFactoryProvider {
 
         // Index statistics.
         factory.register(StatisticsKeyMessage.TYPE_CODE, StatisticsKeyMessage::new);
-        factory.register(StatisticsDecimalMessage.TYPE_CODE, StatisticsDecimalMessage::new);
+        factory.register(StatisticsDecimalMessage.TYPE_CODE, StatisticsDecimalMessage::new, new StatisticsDecimalMessageSerializer());
         factory.register(StatisticsObjectData.TYPE_CODE, StatisticsObjectData::new);
         factory.register(StatisticsColumnData.TYPE_CODE, StatisticsColumnData::new);
         factory.register(StatisticsRequest.TYPE_CODE, StatisticsRequest::new);
