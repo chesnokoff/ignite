@@ -49,15 +49,15 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
 
     /** TTL. */
     @Order(2)
-    private long ttl;
+    protected long ttl;
 
     /** Expire time. */
     @Order(3)
-    private long expireTime;
+    protected long expireTime;
 
     /** Version. */
-    @Order(value = 4, method = "version")
-    private GridCacheVersion ver;
+    @Order(4)
+    protected GridCacheVersion ver;
 
     /**
      * {@code Externalizable} support.
@@ -120,23 +120,9 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
         return ttl;
     }
 
-    /**
-     * @param ttl Ttl.
-     */
-    public void ttl(long ttl) {
-        this.ttl = ttl;
-    }
-
     /** {@inheritDoc} */
     @Override public long expireTime() {
         return expireTime;
-    }
-
-    /**
-     * @param expireTime Expire time.
-     */
-    public void expireTime(long expireTime) {
-        this.expireTime = expireTime;
     }
 
     /** {@inheritDoc} */
@@ -157,13 +143,6 @@ public class GridCacheRawVersionedEntry<K, V> extends DataStreamerEntry implemen
     /** {@inheritDoc} */
     @Override public GridCacheVersion version() {
         return ver;
-    }
-
-    /**
-     * @param ver Version.
-     */
-    public void version(GridCacheVersion ver) {
-        this.ver = ver;
     }
 
     /**
