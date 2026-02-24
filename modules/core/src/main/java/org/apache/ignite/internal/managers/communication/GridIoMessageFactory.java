@@ -294,6 +294,7 @@ import org.apache.ignite.internal.processors.query.messages.GridQueryKillRespons
 import org.apache.ignite.internal.processors.query.schema.message.SchemaOperationStatusMessage;
 import org.apache.ignite.internal.processors.query.schema.message.SchemaOperationStatusMessageSerializer;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsColumnData;
+import org.apache.ignite.internal.processors.query.stat.messages.StatisticsColumnDataSerializer;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsDecimalMessage;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsDecimalMessageSerializer;
 import org.apache.ignite.internal.processors.query.stat.messages.StatisticsKeyMessage;
@@ -503,7 +504,7 @@ public class GridIoMessageFactory implements MessageFactoryProvider {
         factory.register(StatisticsKeyMessage.TYPE_CODE, StatisticsKeyMessage::new, new StatisticsKeyMessageSerializer());
         factory.register(StatisticsDecimalMessage.TYPE_CODE, StatisticsDecimalMessage::new, new StatisticsDecimalMessageSerializer());
         factory.register(StatisticsObjectData.TYPE_CODE, StatisticsObjectData::new, new StatisticsObjectDataSerializer());
-        factory.register(StatisticsColumnData.TYPE_CODE, StatisticsColumnData::new);
+        factory.register(StatisticsColumnData.TYPE_CODE, StatisticsColumnData::new, new StatisticsColumnDataSerializer());
         factory.register(StatisticsRequest.TYPE_CODE, StatisticsRequest::new);
         factory.register(StatisticsResponse.TYPE_CODE, StatisticsResponse::new);
 
