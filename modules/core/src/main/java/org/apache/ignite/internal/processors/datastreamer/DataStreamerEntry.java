@@ -31,12 +31,12 @@ import org.apache.ignite.plugin.extensions.communication.Message;
  */
 public class DataStreamerEntry implements Map.Entry<KeyCacheObject, CacheObject>, Message {
     /** */
-    @Order(0)
+    @Order(value = 0, method = "keyCacheObject")
     @GridToStringInclude
     protected KeyCacheObject key;
 
     /** */
-    @Order(1)
+    @Order(value = 1, method = "valueCacheObject")
     @GridToStringInclude
     protected CacheObject val;
 
@@ -98,6 +98,34 @@ public class DataStreamerEntry implements Map.Entry<KeyCacheObject, CacheObject>
     /** {@inheritDoc} */
     @Override public short directType() {
         return 95;
+    }
+
+    /**
+     * @return Key.
+     */
+    public KeyCacheObject keyCacheObject() {
+        return key;
+    }
+
+    /**
+     * @param key New key.
+     */
+    public void keyCacheObject(KeyCacheObject key) {
+        this.key = key;
+    }
+
+    /**
+     * @return Value.
+     */
+    public CacheObject valueCacheObject() {
+        return val;
+    }
+
+    /**
+     * @param val New value.
+     */
+    public void valueCacheObject(CacheObject val) {
+        this.val = val;
     }
 
     /** {@inheritDoc} */
