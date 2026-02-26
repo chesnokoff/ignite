@@ -36,11 +36,11 @@ public class StatisticsDecimalMessage implements Message, Serializable {
 
     /** */
     @Order(0)
-    protected int scale;
+    int scale;
 
     /** */
     @Order(1)
-    protected byte[] b;
+    byte[] b;
 
     /**
      *

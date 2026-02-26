@@ -35,27 +35,27 @@ public class StatisticsObjectData implements Message, Serializable {
 
     /** Statistics key. */
     @Order(0)
-    protected StatisticsKeyMessage key;
+    StatisticsKeyMessage key;
 
     /** Total row count in current object. */
     @Order(1)
-    protected long rowsCnt;
+    long rowsCnt;
 
     /** Type of statistics. */
     @Order(2)
-    protected StatisticsType type;
+    StatisticsType type;
 
     /** Partition id if statistics was collected by partition. */
     @Order(3)
-    protected int partId;
+    int partId;
 
     /** Update counter if statistics was collected by partition. */
     @Order(4)
-    protected long updCnt;
+    long updCnt;
 
     /** Columns key to statistic map. */
     @Order(5)
-    protected Map<String, StatisticsColumnData> data;
+    Map<String, StatisticsColumnData> data;
 
     /**
      * Constructor.

@@ -33,39 +33,39 @@ public class StatisticsColumnData implements Message, Serializable {
 
     /** Min value in column. */
     @Order(0)
-    protected StatisticsDecimalMessage min;
+    StatisticsDecimalMessage min;
 
     /** Max value in column. */
     @Order(1)
-    protected StatisticsDecimalMessage max;
+    StatisticsDecimalMessage max;
 
     /** Number of null values in column. */
     @Order(2)
-    protected long nulls;
+    long nulls;
 
     /** Number of distinct values in column (except nulls). */
     @Order(3)
-    protected long distinct;
+    long distinct;
 
     /** Total vals in column. */
     @Order(4)
-    protected long total;
+    long total;
 
     /** Average size, for variable size values (in bytes). */
     @Order(5)
-    protected int size;
+    int size;
 
     /** Raw data. */
     @Order(6)
-    protected byte[] rawData;
+    byte[] rawData;
 
     /** Version. */
     @Order(7)
-    protected long ver;
+    long ver;
 
     /** Created at time, milliseconds. */
     @Order(8)
-    protected long createdAt;
+    long createdAt;
 
     /**
      * Default constructor.

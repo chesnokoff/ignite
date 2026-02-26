@@ -36,15 +36,15 @@ public class StatisticsKeyMessage implements Message, Serializable {
 
     /** Object schema. */
     @Order(0)
-    protected String schema;
+    String schema;
 
     /** Object name. */
     @Order(1)
-    protected String obj;
+    String obj;
 
     /** Optional list of columns to collect statistics by. */
     @Order(2)
-    protected List<String> colNames;
+    List<String> colNames;
 
     /**
      * Empty constructor.
