@@ -33,12 +33,12 @@ public class DataStreamerEntry implements Map.Entry<KeyCacheObject, CacheObject>
     /** */
     @Order(0)
     @GridToStringInclude
-    protected KeyCacheObject key;
+    public KeyCacheObject key;
 
     /** */
     @Order(1)
     @GridToStringInclude
-    protected CacheObject val;
+    public CacheObject val;
 
     /**
      *
