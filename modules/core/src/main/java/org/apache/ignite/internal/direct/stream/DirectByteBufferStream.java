@@ -923,12 +923,12 @@ public class DirectByteBufferStream {
         if (msg != null) {
             if (buf.hasRemaining()) {
                 try {
-                    writer.beforeInnerMessageWrite();
+                    writer.beforeNestedWrite();
 
                     lastFinished = msgFactory.serializer(msg.directType()).writeTo(msg, writer);
                 }
                 finally {
-                    writer.afterInnerMessageWrite(lastFinished);
+                    writer.afterNestedWrite(lastFinished);
                 }
             }
             else
@@ -1574,12 +1574,12 @@ public class DirectByteBufferStream {
 
         if (msg != null) {
             try {
-                reader.beforeInnerMessageRead();
+                reader.beforeNestedRead();
 
                 lastFinished = msgFactory.serializer(msg.directType()).readFrom(msg, reader);
             }
             finally {
-                reader.afterInnerMessageRead(lastFinished);
+                reader.afterNestedRead(lastFinished);
             }
         }
         else
@@ -2117,30 +2117,51 @@ public class DirectByteBufferStream {
                 break;
 
             case MAP:
-                writeMap((Map<K, V>)val, (MessageMapType)type, writer);
+                try {
+                    writer.beforeNestedWrite();
+
+                    lastFinished = writer.writeMap((Map<K, V>)val, (MessageMapType)type);
+                }
+                finally {
+                    writer.afterNestedWrite(lastFinished);
+                }
 
                 break;
 
             case COLLECTION:
-                writeCollection((Collection<V>)val, (MessageCollectionType)type, writer);
+                try {
+                    writer.beforeNestedWrite();
+
+                    lastFinished = writer.writeCollection((Collection<V>)val, (MessageCollectionType)type);
+                }
+                finally {
+                    writer.afterNestedWrite(lastFinished);
+                }
 
                 break;
 
             case ARRAY:
-                writeObjectArray((V[])val, (MessageArrayType)type, writer);
+                try {
+                    writer.beforeNestedWrite();
+
+                    lastFinished = writer.writeObjectArray((V[])val, (MessageArrayType)type);
+                }
+                finally {
+                    writer.afterNestedWrite(lastFinished);
+                }
 
                 break;
 
             case MSG:
                 try {
                     if (val != null)
-                        writer.beforeInnerMessageWrite();
+                        writer.beforeNestedWrite();
 
                     writeMessage((Message)val, writer);
                 }
                 finally {
                     if (val != null)
-                        writer.afterInnerMessageWrite(lastFinished);
+                        writer.afterNestedWrite(lastFinished);
                 }
 
                 break;
@@ -2230,13 +2251,46 @@ public class DirectByteBufferStream {
                 return readGridLongList();
 
             case MAP:
-                return readMap((MessageMapType)type, reader);
+                try {
+                    reader.beforeNestedRead();
+
+                    Object val = reader.readMap((MessageMapType)type);
+
+                    lastFinished = reader.isLastRead();
+
+                    return val;
+                }
+                finally {
+                    reader.afterNestedRead(lastFinished);
+                }
 
             case COLLECTION:
-                return readCollection((MessageCollectionType)type, reader);
+                try {
+                    reader.beforeNestedRead();
+
+                    Object val = reader.readCollection((MessageCollectionType)type);
+
+                    lastFinished = reader.isLastRead();
+
+                    return val;
+                }
+                finally {
+                    reader.afterNestedRead(lastFinished);
+                }
 
             case ARRAY:
-                return readObjectArray((MessageArrayType)type, reader);
+                try {
+                    reader.beforeNestedRead();
+
+                    Object val = reader.readObjectArray((MessageArrayType)type);
+
+                    lastFinished = reader.isLastRead();
+
+                    return val;
+                }
+                finally {
+                    reader.afterNestedRead(lastFinished);
+                }
 
             case MSG:
                 return readMessage(reader);
