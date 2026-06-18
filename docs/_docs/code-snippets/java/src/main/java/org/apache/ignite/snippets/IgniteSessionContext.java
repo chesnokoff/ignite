@@ -20,12 +20,14 @@ import javax.cache.Cache;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.Map;
 
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.cache.CacheInterceptor;
 import org.apache.ignite.cache.query.annotations.QuerySqlFunction;
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.apache.ignite.internal.util.typedef.F;
-import org.apache.ignite.cache.CacheInterceptor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.resources.SessionContextProviderResource;
 import org.apache.ignite.session.SessionContextProvider;
@@ -89,9 +91,9 @@ public class IgniteSessionContext {
         //tag::ignite-context[]
         try (Ignite ign = Ignition.start(ignCfg)) {
 
-            Map<String, String> appAttrs = F.asMap("SESSION_ID", "1234");
+            Map<String, String> appAttrs = Collections.singletonMap("SESSION_ID", "1234");
 
-            Ignite app = Ignite.withApplicationAttributes(appAttrs);
+            Ignite app = ign.withApplicationAttributes(appAttrs);
 
             //Your code here...
         }
