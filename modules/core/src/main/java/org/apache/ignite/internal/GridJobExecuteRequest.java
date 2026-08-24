@@ -398,3 +398,5 @@ public class GridJobExecuteRequest implements ExecutorAwareMessage, DeferredUnma
     }
 
 }
+
+// Demo change for IGNITE-29009: touches a message class that the old rule never detected.
