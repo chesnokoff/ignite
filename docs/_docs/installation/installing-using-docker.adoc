@@ -76,6 +76,78 @@ To run a specific version of Ignite, use the following command:
 sudo docker run -d apacheignite/ignite:{version}
 ----
 
+=== Connecting Nodes from Outside Docker
+
+Thin clients do not join the cluster topology and only use the client connector.
+To connect a thin client running outside Docker, publish port `10800` as described in the *Networking* consideration
+above.
+
+A server node or a thick client is a full cluster node and uses both the discovery and communication protocols.
+By default, these protocols listen on ports `47500` and `47100`, respectively.
+Publishing these ports is necessary, but may not be sufficient: Ignite nodes also advertise their addresses to other
+nodes, and a node running in a container normally advertises its container-internal address.
+That address is not routable from the host on Docker Desktop and may also be blocked by host firewall rules on Linux.
+As a result, an external node can reach a published discovery port and still fail to join or exchange data.
+
+Use one of the following network layouts for server nodes and thick clients:
+
+* Run all full cluster nodes in the same user-defined Docker network. Container names or network aliases can then be
+used by a static IP finder, and inter-node ports do not need to be published.
+* Use a routed network in which container addresses and the external node address are mutually reachable.
+* Publish the discovery and communication ports and configure an `AddressResolver` on every containerized node so
+that it advertises the corresponding host addresses and published ports.
+
+The following example shows the last option for a single container and an external node running on the same Docker
+host. It assigns a stable container address because the address is referenced by `BasicAddressResolver`:
+
+[source,shell]
+----
+docker network create --subnet 172.28.0.0/24 ignite-net
+
+docker run -d --name ignite1 \
+  --network ignite-net --ip 172.28.0.2 \
+  -p 47500:47500 -p 47100:47100 -p 10800:10800 \
+  -v ${PWD}/ignite1.xml:/config/ignite1.xml \
+  -e CONFIG_URI=/config/ignite1.xml \
+  apacheignite/ignite
+----
+
+In `ignite1.xml`, map both the discovery and communication addresses to addresses that are reachable from the external
+node. The port ranges are set to `0` because every bound port must have a matching published-port mapping.
+
+[source,xml]
+----
+include::code-snippets/xml/docker-external-node.xml[tag=ignite-config,indent=0]
+----
+
+Configure the external node's static IP finder with `127.0.0.1:47500`.
+For an external thick client, also enable `TcpCommunicationSpi.forceClientToServerConnections` so that server nodes do
+not have to open communication connections back to the client. If the container-internal addresses are not routable
+from the client, enable `TcpCommunicationSpi.filterReachableAddresses` so that the client uses the resolver-provided
+addresses instead. Consider reducing `TcpDiscoverySpi.socketTimeout`, `TcpCommunicationSpi.connectTimeout`, and
+`TcpCommunicationSpi.maxConnectTimeout`; otherwise, every unreachable internal address can delay connection to the
+published address. See
+link:clustering/running-client-nodes-behind-nat[Running Client Nodes Behind NAT].
+
+An external server node requires bidirectional connectivity. In addition to the configuration above, make the server
+node's discovery and communication addresses reachable from the containers. Configure an `AddressResolver` on the
+external server in the reverse direction: map each address and port on which the server listens to an address and port
+through which the containers can reach that socket. For example, when the server uses discovery port `48500` and
+communication port `49100`, map both `<local-host-address>:48500` and `<local-host-address>:49100` to the corresponding
+ports on `<docker-visible-host-address>`.
+
+On Linux, the Docker bridge gateway can be the Docker-visible host address. On Docker Desktop, bind the external server
+to `0.0.0.0`, resolve `host.docker.internal` from inside a container, and advertise the resulting address through a
+custom `AddressResolver`. Do not use `host.docker.internal` as the server's bind address unless it also resolves to a
+local interface on the host. If the external server has several local addresses, a custom resolver is usually simpler
+than listing every mapping in `BasicAddressResolver`.
+
+For a multi-node Docker cluster, publish a unique pair of host ports for every container and add the corresponding
+discovery and communication mappings to each container's resolver. If container addresses are assigned dynamically,
+use a custom `AddressResolver` that determines the published addresses at startup instead of `BasicAddressResolver`.
+Make sure that firewalls allow connections in both directions. Multicast discovery does not normally cross the Docker
+network boundary, so configure a static IP finder or another discovery mechanism that is available to all nodes.
+
 == Running Persistent Cluster
 
 If you use link:persistence/native-persistence[Native Persistence], Ignite stores the user data under the default work directory (`{IGNITE_HOME}/work`) in the file system of the container. This directory will be erased if you restart the docker container. To avoid this, you can:
@@ -209,4 +281,3 @@ The downloaded config file is saved to ./ignite-config.xml | N/A
 | `EXTERNAL_LIBS` | A list of URL's to external libraries. Refer to <<Deploying User Libraries>>.| N/A
 
 |===
-
