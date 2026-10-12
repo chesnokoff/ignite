@@ -22,6 +22,7 @@ import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheRebalanceMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
+import org.apache.ignite.cache.PartitionLossPolicy;
 import org.apache.ignite.cache.affinity.AffinityFunction;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -94,6 +95,13 @@ public class GridCacheAttributes implements Serializable {
      */
     public int qryParallelism() {
         return ccfg.getQueryParallelism();
+    }
+
+    /**
+     * @return Partition loss policy.
+     */
+    public PartitionLossPolicy partitionLossPolicy() {
+        return ccfg.getPartitionLossPolicy();
     }
 
     /**
