@@ -41,6 +41,10 @@ public class DistributedMetaStorageCasMessage extends DistributedMetaStorageUpda
     @Order(1)
     boolean matches;
 
+    /** */
+    @Order(2)
+    long ver;
+
     /** Empty constructor for {@link MessageFactory}. */
     public DistributedMetaStorageCasMessage() {
         // No-op.
