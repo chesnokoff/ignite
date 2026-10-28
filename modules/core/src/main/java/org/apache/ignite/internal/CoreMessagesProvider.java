@@ -383,8 +383,8 @@ public class CoreMessagesProvider extends AbstractMessageFactoryProvider {
         register(InetAddressMessage.class);
         register(TcpDiscoveryNode.class);
         register(DiscoveryDataPacket.class);
-        register(GridByteArrayList.class);
         register(CacheVersionedValue.class);
+        register(GridByteArrayList.class);
         register(KeyedVersionedValue.class);
         register(WALPointer.class);
         msgIdx++; // Former 'SerializableDataBagItemWrapper'
