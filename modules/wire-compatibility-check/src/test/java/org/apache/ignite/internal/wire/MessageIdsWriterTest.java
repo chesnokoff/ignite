@@ -20,6 +20,7 @@ package org.apache.ignite.internal.wire;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.managers.communication.IgniteMessageFactory;
 import org.apache.ignite.internal.plugin.AbstractMessageFactoryProvider;
@@ -34,46 +35,74 @@ import static org.junit.Assert.assertTrue;
 
 /** */
 public class MessageIdsWriterTest {
-    /** Expected {@code ids.json}. */
-    private static final String IDS = "{\n  \"42\": \"" + TestMessage.class.getName() + "\"\n}\n";
+    /** {@code ids.json} for {@link TestMessage} registered under 42. */
+    private static final String IDS = """
+        {
+          "42": "org.apache.ignite.internal.wire.TestMessage"
+        }
+        """;
 
     /** */
-    @Rule public TemporaryFolder tmp = new TemporaryFolder();
+    @Rule
+    public TemporaryFolder tmp = new TemporaryFolder();
 
-    /** */
-    @Test public void testWrite() throws IOException {
-        Path dir = tmp.getRoot().toPath();
+    /** Messages that need no description. */
+    private final Set<Class<?>> handWritten = new HashSet<>();
 
-        Files.createDirectories(dir.resolve("messages"));
-        Files.writeString(dir.resolve("messages/" + TestMessage.class.getName() + ".json"), "{}");
+    /** A described message gets its line in {@code ids.json}. */
+    @Test
+    public void testDescribed() throws IOException {
+        describe(TestMessage.class);
 
-        new MessageIdsWriter(providers(), Set.of()).write(dir);
-
-        assertEquals(IDS, Files.readString(dir.resolve("ids.json")));
+        assertEquals(IDS, writeIds());
     }
 
-    /** */
-    @Test public void testMissingDescription() throws IOException {
-        Path dir = tmp.getRoot().toPath();
-
-        IllegalStateException e = assertThrows(IllegalStateException.class,
-            () -> new MessageIdsWriter(providers(), Set.of()).write(dir));
+    /** The writer fails on a message without a description and names the message. */
+    @Test
+    public void testMissingDescription() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, this::writeIds);
 
         assertTrue(e.getMessage(), e.getMessage().contains(TestMessage.class.getName()));
-
-        new MessageIdsWriter(providers(), Set.of(TestMessage.class)).write(dir);
-
-        assertEquals(IDS, Files.readString(dir.resolve("ids.json")));
     }
 
-    /** @return Provider registering {@link TestMessage} under the direct type 42. */
-    private static MessageFactoryProvider[] providers() {
-        return new MessageFactoryProvider[] {
-            new AbstractMessageFactoryProvider() {
-                @Override public void registerAll(IgniteMessageFactory factory) {
-                    register(factory, TestMessage.class, (short)42);
-                }
+    /** A message listed as hand-written needs no description and still gets its line in {@code ids.json}. */
+    @Test
+    public void testHandWritten() throws IOException {
+        handWritten.add(TestMessage.class);
+
+        assertEquals(IDS, writeIds());
+    }
+
+    /**
+     * Creates an empty description: the writer checks only that the file exists.
+     *
+     * @param cls Message class.
+     */
+    private void describe(Class<?> cls) throws IOException {
+        Path msgs = Files.createDirectories(wire().resolve("messages"));
+
+        Files.createFile(msgs.resolve(cls.getName() + ".json"));
+    }
+
+    /**
+     * Runs the writer over {@link TestMessage} registered under 42.
+     *
+     * @return Written {@code ids.json}.
+     */
+    private String writeIds() throws IOException {
+        MessageFactoryProvider provider = new AbstractMessageFactoryProvider() {
+            @Override public void registerAll(IgniteMessageFactory factory) {
+                register(factory, TestMessage.class, (short)42);
             }
         };
+
+        new MessageIdsWriter(new MessageFactoryProvider[] {provider}, handWritten).write(wire());
+
+        return Files.readString(wire().resolve("ids.json"));
+    }
+
+    /** @return Directory with the message descriptions: a temporary folder instead of {@code wire/}. */
+    private Path wire() {
+        return tmp.getRoot().toPath();
     }
 }
