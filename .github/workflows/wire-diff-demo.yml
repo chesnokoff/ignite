@@ -57,12 +57,12 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/wire-base"
           rm -rf modules/wire-compatibility-check/wire
-          ./mvnw -B -ntp clean process-classes -pl modules/wire-compatibility-check -am -DskipTests -T 1C > "$GITHUB_WORKSPACE/wire-report/base-build.log" 2>&1 || { tail -n 100 "$GITHUB_WORKSPACE/wire-report/base-build.log"; exit 1; }
+          ./mvnw -B -ntp clean test-compile -pl modules/wire-compatibility-check -am -DskipTests -T 1C > "$GITHUB_WORKSPACE/wire-report/base-build.log" 2>&1 || { tail -n 100 "$GITHUB_WORKSPACE/wire-report/base-build.log"; exit 1; }
           cp -R modules/wire-compatibility-check/wire "$GITHUB_WORKSPACE/wire-report/base"
       - name: Generate PR descriptions
         run: |
           rm -rf modules/wire-compatibility-check/wire
-          ./mvnw -B -ntp clean process-classes -pl modules/wire-compatibility-check -am -DskipTests -T 1C > wire-report/head-build.log 2>&1 || { tail -n 100 wire-report/head-build.log; exit 1; }
+          ./mvnw -B -ntp clean test-compile -pl modules/wire-compatibility-check -am -DskipTests -T 1C > wire-report/head-build.log 2>&1 || { tail -n 100 wire-report/head-build.log; exit 1; }
           cp -R modules/wire-compatibility-check/wire wire-report/head
       - name: Publish the wire diff
         run: python3 .github/scripts/wire-diff-demo.py wire-report
