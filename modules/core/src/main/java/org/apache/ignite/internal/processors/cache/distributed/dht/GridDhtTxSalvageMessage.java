@@ -27,6 +27,10 @@ public class GridDhtTxSalvageMessage extends GridCacheMessage {
     @Order(0)
     GridCacheVersion ver;
 
+    /** Demonstration field for the fork-only wire-diff experiment. */
+    @Order(1)
+    int demoProtocolVersion;
+
     /** Empty constructor. */
     public GridDhtTxSalvageMessage() {
         // No-op.
