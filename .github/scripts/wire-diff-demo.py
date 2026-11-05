@@ -63,6 +63,7 @@ summary = [
     "",
 ]
 if changes:
+    print("::warning title=Wire format changed::Review the generated JSON diff in this job summary. A difference does not determine compatibility.")
     summary += ["| Change | Description |", "| --- | --- |"]
     summary += [f"| {status} | `{path}` |" for status, path in changes]
     summary += ["", "## Generated JSON diff", "", "```diff", full_diff[:100000], "```", ""]
