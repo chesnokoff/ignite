@@ -1,0 +1,79 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Wire format diff demo
+
+on:
+  pull_request:
+    branches: [demo/wire-diff-base-20261105]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wire-diff-demo-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  wire-diff:
+    name: Rolling upgrade compatibility (demo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Select the two revisions
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          base_sha=$(git merge-base "$TARGET_SHA" "$HEAD_SHA")
+          git worktree add --detach "$RUNNER_TEMP/wire-base" "$base_sha"
+          mkdir -p wire-report
+          printf '%s\n' "$base_sha" > wire-report/base-sha.txt
+          printf '%s\n' "$HEAD_SHA" > wire-report/head-sha.txt
+      - name: Generate base descriptions
+        run: |
+          cd "$RUNNER_TEMP/wire-base"
+          rm -rf modules/wire-compatibility-check/wire
+          ./mvnw -B -ntp clean process-classes -pl modules/wire-compatibility-check -am -DskipTests -T 1C > "$GITHUB_WORKSPACE/wire-report/base-build.log" 2>&1 || { tail -n 100 "$GITHUB_WORKSPACE/wire-report/base-build.log"; exit 1; }
+          cp -R modules/wire-compatibility-check/wire "$GITHUB_WORKSPACE/wire-report/base"
+      - name: Generate PR descriptions
+        run: |
+          rm -rf modules/wire-compatibility-check/wire
+          ./mvnw -B -ntp clean process-classes -pl modules/wire-compatibility-check -am -DskipTests -T 1C > wire-report/head-build.log 2>&1 || { tail -n 100 wire-report/head-build.log; exit 1; }
+          cp -R modules/wire-compatibility-check/wire wire-report/head
+      - name: Publish the wire diff
+        run: python3 .github/scripts/wire-diff-demo.py wire-report
+      - name: Report a failed comparison
+        if: failure()
+        run: |
+          echo '## Wire format comparison failed' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Generation or comparison failed. This run cannot report whether the wire format changed. Inspect the failing step and the build-log artifact.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wire-diff-${{ github.event.pull_request.head.sha }}
+          path: wire-report/
+          retention-days: 14
