@@ -1,0 +1,74 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+name: Wire comment pilot publish
+on:
+  workflow_run:
+    workflows: [Wire comment pilot build]
+    types: [completed]
+permissions: {}
+concurrency:
+  group: wire-comment-pilot-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wire-comment-pilot
+          path: ${{ runner.temp }}/wire-comment
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - uses: actions/github-script@v8
+        env:
+          REPORT_DIR: ${{ runner.temp }}/wire-comment
+        with:
+          script: |
+            const fs = require('node:fs');
+            const run = context.payload.workflow_run;
+            const repo = context.repo;
+            const marker = '<!-- wire-comment-pilot -->';
+            const candidates = await github.paginate(github.rest.pulls.list, {
+              ...repo, state: 'open', head: `${run.head_repository.owner.login}:${run.head_branch}`,
+            });
+            const pr = candidates.find(p => p.head.repo?.id === run.head_repository.id && p.head.sha === run.head_sha);
+            if (!pr) return;
+            const file = `${process.env.REPORT_DIR}/wire.diff`;
+            const stat = fs.lstatSync(file);
+            if (!stat.isFile() || stat.size > 20000) throw new Error('Invalid pilot diff');
+            const diff = fs.readFileSync(file, 'utf8');
+            const fence = '`'.repeat(Math.max(3, ...Array.from(diff.matchAll(/`+/g), m => m[0].length + 1)));
+            const body = [marker, '## Wire diff — pilot',
+              '**Synthetic data: this does not check Ignite compatibility.**',
+              `Commit: ${run.head_sha}`,
+              diff ? 'Wire description changed. Review required.' : 'No wire description changes.',
+              diff ? `${fence}diff\n${diff}\n${fence}` : '',
+              `[Workflow run](${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${run.id})`,
+            ].join('\n\n');
+            const comments = await github.paginate(github.rest.issues.listComments, {...repo, issue_number: pr.number});
+            const existing = comments.find(c => c.user.login === 'github-actions[bot]' && c.body.startsWith(marker));
+            const {data: current} = await github.rest.pulls.get({...repo, pull_number: pr.number});
+            if (current.state !== 'open' || current.head.sha !== run.head_sha) return;
+            if (existing)
+              await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
+            else
+              await github.rest.issues.createComment({...repo, issue_number: pr.number, body});
