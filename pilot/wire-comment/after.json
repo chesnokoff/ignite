@@ -1,0 +1,10 @@
+{
+  "messageId": 100,
+  "fields": [
+    {
+      "order": 0,
+      "type": "long",
+      "name": "counter"
+    }
+  ]
+}
