@@ -13,32 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 name: Wire comment pilot build
+
 on:
   pull_request:
+    branches: [master]
     paths: ['pilot/wire-comment/**']
+
 permissions:
   contents: read
+
 jobs:
-  diff:
+  check-wire:
+    name: Compare wire format descriptions
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-      - name: Compare synthetic wire descriptions
+      - name: Check all wire format descriptions are collected
+        run: jq -e '.messageId and (.fields | length > 0)' pilot/wire-comment/{before,after}.json
+      - name: Compare descriptions and publish summary
+        id: compare
         run: |
-          mkdir -p "$RUNNER_TEMP/wire-comment"
-          rc=0
-          diff -u --label base/ExampleMessage.json --label head/ExampleMessage.json \
-            pilot/wire-comment/before.json pilot/wire-comment/after.json \
-            > "$RUNNER_TEMP/wire-comment/wire.diff" || rc=$?
-          test "$rc" -le 1
-      - uses: actions/upload-artifact@v4
+          status=0
+          diff -u --label base/ExampleMessage.json --label merge/ExampleMessage.json \
+            pilot/wire-comment/{before,after}.json > wire.diff || status=$?
+          if [ "$status" -gt 1 ]; then exit "$status"; fi
+          echo "changed=$status" >> "$GITHUB_OUTPUT"
+
+          echo '## Wire diff (synthetic pilot)' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" = 0 ]; then
+            echo 'No wire format changes.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo '::warning::Wire format changed. Review the job summary before approval.'
+          {
+            echo '```diff'
+            cat wire.diff
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload wire diff
+        uses: actions/upload-artifact@v4
+        if: steps.compare.outputs.changed == '1'
         with:
-          name: wire-comment-pilot
-          path: ${{ runner.temp }}/wire-comment/wire.diff
-          retention-days: 7
+          name: wire-diff
+          path: wire.diff
+          retention-days: 14

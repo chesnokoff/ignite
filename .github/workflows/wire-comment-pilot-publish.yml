@@ -13,62 +13,101 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 name: Wire comment pilot publish
+
 on:
   workflow_run:
     workflows: [Wire comment pilot build]
     types: [completed]
+
 permissions: {}
+
 concurrency:
-  group: wire-comment-pilot-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+  group: wire-comment-pilot-pr-12
   cancel-in-progress: false
+
 jobs:
   publish:
-    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.repository == 'chesnokoff/ignite'
+      && github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+      && github.event.workflow_run.head_branch == 'pilot/workflow-run-comment'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
       actions: read
       pull-requests: write
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: wire-comment-pilot
-          path: ${{ runner.temp }}/wire-comment
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ github.token }}
       - uses: actions/github-script@v8
-        env:
-          REPORT_DIR: ${{ runner.temp }}/wire-comment
         with:
           script: |
-            const fs = require('node:fs');
             const run = context.payload.workflow_run;
             const repo = context.repo;
+            const issue = {...repo, issue_number: 12};
+            const label = 'compatibility';
             const marker = '<!-- wire-comment-pilot -->';
-            const candidates = await github.paginate(github.rest.pulls.list, {
-              ...repo, state: 'open', head: `${run.head_repository.owner.login}:${run.head_branch}`,
+            const bot = 'github-actions[bot]';
+
+            if (!/^[0-9a-f]{40}$/.test(run.head_sha) || run.path !== '.github/workflows/wire-comment-pilot-build.yml') return;
+
+            const {data: {jobs}} = await github.rest.actions.listJobsForWorkflowRunAttempt({
+              ...repo, run_id: run.id, attempt_number: run.run_attempt,
             });
-            const pr = candidates.find(p => p.head.repo?.id === run.head_repository.id && p.head.sha === run.head_sha);
-            if (!pr) return;
-            const file = `${process.env.REPORT_DIR}/wire.diff`;
-            const stat = fs.lstatSync(file);
-            if (!stat.isFile() || stat.size > 20000) throw new Error('Invalid pilot diff');
-            const diff = fs.readFileSync(file, 'utf8');
-            const fence = '`'.repeat(Math.max(3, ...Array.from(diff.matchAll(/`+/g), m => m[0].length + 1)));
-            const body = [marker, '## Wire diff — pilot',
-              '**Synthetic data: this does not check Ignite compatibility.**',
-              `Commit: ${run.head_sha}`,
-              diff ? 'Wire description changed. Review required.' : 'No wire description changes.',
-              diff ? `${fence}diff\n${diff}\n${fence}` : '',
-              `[Workflow run](${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${run.id})`,
-            ].join('\n\n');
-            const comments = await github.paginate(github.rest.issues.listComments, {...repo, issue_number: pr.number});
-            const existing = comments.find(c => c.user.login === 'github-actions[bot]' && c.body.startsWith(marker));
-            const {data: current} = await github.rest.pulls.get({...repo, pull_number: pr.number});
-            if (current.state !== 'open' || current.head.sha !== run.head_sha) return;
+            const comparison = jobs.find(job => job.name === 'Compare wire format descriptions');
+            const stepResult = name => comparison?.steps.find(step => step.name === name)?.conclusion;
+            if (comparison?.conclusion !== 'success'
+                || stepResult('Check all wire format descriptions are collected') !== 'success'
+                || stepResult('Compare descriptions and publish summary') !== 'success') return;
+
+            const upload = stepResult('Upload wire diff');
+            if (upload !== 'success' && upload !== 'skipped') return;
+
+            const comments = await github.paginate(github.rest.issues.listComments, issue);
+            const existing = comments.find(comment => comment.user.login === bot && comment.body.startsWith(marker));
+            const lastLabelEvent = async () => {
+              const events = await github.paginate(github.rest.issues.listEvents, issue);
+              return events.filter(event => ['labeled', 'unlabeled'].includes(event.event)
+                && event.label?.name === label).at(-1);
+            };
+
+            const {data: {workflow_runs: runs}} = await github.rest.actions.listWorkflowRuns({
+              ...repo, workflow_id: run.workflow_id, event: 'pull_request',
+              branch: run.head_branch, head_sha: run.head_sha,
+            });
+            if (!runs.some(candidate => candidate.id === run.id && candidate.run_attempt === run.run_attempt)
+                || runs.some(candidate => candidate.head_repository?.id === run.head_repository.id
+                  && candidate.run_number > run.run_number)) return;
+
+            const {data: pr} = await github.rest.pulls.get({...repo, pull_number: issue.issue_number});
+            if (pr.state !== 'open' || pr.base.ref !== 'master' || pr.head.ref !== run.head_branch
+                || pr.head.repo?.id !== run.head_repository.id || pr.head.sha !== run.head_sha) return;
+
+            let ownedId = existing?.body.match(/<!-- wire-comment-pilot-label: (\d+) -->/)?.[1];
+            const currentLabel = await lastLabelEvent();
+            const hasLabel = pr.labels.some(item => item.name === label);
+            if (!hasLabel || currentLabel?.event !== 'labeled'
+                || currentLabel.actor?.login !== bot || String(currentLabel.id) !== ownedId) ownedId = undefined;
+
+            if (upload === 'skipped') {
+              if (ownedId) await github.rest.issues.removeLabel({...issue, name: label});
+              if (existing) await github.rest.issues.deleteComment({...repo, comment_id: existing.id});
+              return;
+            }
+
+            if (!hasLabel) {
+              await github.rest.issues.addLabels({...issue, labels: [label]});
+              const added = await lastLabelEvent();
+              if (added?.event === 'labeled' && added.actor?.login === bot && added.id !== currentLabel?.id)
+                ownedId = String(added.id);
+            }
+
+            const body = [marker, ownedId ? `<!-- wire-comment-pilot-label: ${ownedId} -->` : '',
+              '**Wire format changed.** Review the [Job Summary](' + context.serverUrl + '/'
+                + repo.owner + '/' + repo.repo + '/actions/runs/' + run.id + '/attempts/' + run.run_attempt + ').',
+              `Commit: \`${run.head_sha.slice(0, 12)}\`.`,
+              '_Pilot using synthetic wire descriptions._',
+            ].filter(Boolean).join('\n\n');
             if (existing)
               await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
             else
-              await github.rest.issues.createComment({...repo, issue_number: pr.number, body});
+              await github.rest.issues.createComment({...issue, body});
