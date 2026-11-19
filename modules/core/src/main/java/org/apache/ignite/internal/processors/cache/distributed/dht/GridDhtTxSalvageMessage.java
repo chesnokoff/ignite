@@ -21,7 +21,7 @@ import org.apache.ignite.internal.Order;
 import org.apache.ignite.internal.processors.cache.GridCacheMessage;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 
-/** Salvage tx. */
+/** Request to salvage a transaction. */
 public class GridDhtTxSalvageMessage extends GridCacheMessage {
     /** */
     @Order(0)
