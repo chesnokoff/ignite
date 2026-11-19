@@ -377,8 +377,8 @@ public class CoreMessagesProvider extends AbstractMessageFactoryProvider {
 
         // [5000 - 5500]: Utility messages. Most of them originally come from Discovery.
         msgIdx = 5000;
-        register(CompressedMessage.class);
         register(ErrorMessage.class);
+        register(CompressedMessage.class);
         register(InetSocketAddressMessage.class);
         register(InetAddressMessage.class);
         register(TcpDiscoveryNode.class);
