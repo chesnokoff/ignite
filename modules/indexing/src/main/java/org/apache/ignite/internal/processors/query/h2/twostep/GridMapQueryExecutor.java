@@ -84,7 +84,6 @@ import org.jetbrains.annotations.NotNull;
 import static org.apache.ignite.events.EventType.EVT_CACHE_QUERY_EXECUTED;
 import static org.apache.ignite.internal.cache.query.index.sorted.inline.InlineIndexImpl.calculateSegment;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.QUERY_POOL;
-import static org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2QueryRequest.isDataPageScanEnabled;
 import static org.apache.ignite.internal.processors.query.h2.twostep.msg.GridH2ValueMessageFactory.toMessages;
 
 /**
@@ -205,8 +204,6 @@ public class GridMapQueryExecutor {
         boolean treatReplicatedAsPartitioned = req.isFlagSet(GridH2QueryRequest.FLAG_REPLICATED_AS_PARTITIONED);
 
         try {
-            Boolean dataPageScanEnabled = req.isDataPageScanEnabled();
-
             final List<Integer> cacheIds = req.caches();
 
             final int parallelism = explain || replicated || F.isEmpty(cacheIds) ? 1 :
@@ -255,7 +252,6 @@ public class GridMapQueryExecutor {
                                 timeout,
                                 params,
                                 lazy,
-                                dataPageScanEnabled,
                                 treatReplicatedAsPartitioned
                             );
                         }
@@ -284,7 +280,6 @@ public class GridMapQueryExecutor {
                 timeout,
                 params,
                 lazy,
-                dataPageScanEnabled,
                 treatReplicatedAsPartitioned
             );
         }
@@ -312,7 +307,7 @@ public class GridMapQueryExecutor {
      * @param timeout Query timeout.
      * @param params Query parameters.
      * @param lazy Streaming flag.
-     * @param dataPageScanEnabled If data page scan is enabled.
+     * @param treatReplicatedAsPartitioned Treat replicated as partitioned flag.
      */
     private void onQueryRequest0(
         final ClusterNode node,
@@ -333,7 +328,6 @@ public class GridMapQueryExecutor {
         final int timeout,
         final Object[] params,
         boolean lazy,
-        Boolean dataPageScanEnabled,
         boolean treatReplicatedAsPartitioned
     ) {
         boolean performanceStatsEnabled = ctx.performanceStatistics().enabled();
@@ -441,13 +435,13 @@ public class GridMapQueryExecutor {
                     // Ensure we are on the target node for this replicated query.
                     if (qry.node() == null || (segmentId == 0 && qry.node().equals(ctx.localNodeId()))) {
                         String sql = qry.query();
-                        Collection<Object> params0 = F.asList(qry.parameters(params));
+                        Object[] params0 = qry.parameters(params);
 
                         PreparedStatement stmt = conn.prepareStatement(sql, H2StatementCache.queryFlags(
                             distributedJoins,
                             enforceJoinOrder));
 
-                        H2Utils.bindParameters(stmt, params0);
+                        H2Utils.bindParameters(stmt, F.asList(params0));
 
                         GridQueryCancel qryCancel = qryResults.queryCancel(qryIdx);
 
@@ -468,6 +462,7 @@ public class GridMapQueryExecutor {
                             qryId,
                             runningQryId,
                             qryInitiatorId,
+                            params0,
                             reqId,
                             segmentId
                         );
@@ -491,7 +486,6 @@ public class GridMapQueryExecutor {
                                 sql,
                                 timeout,
                                 qryCancel,
-                                dataPageScanEnabled,
                                 null
                             ),
                             qryInfo
@@ -546,8 +540,7 @@ public class GridMapQueryExecutor {
                                 qryResults0,
                                 qryIdx0,
                                 segmentId,
-                                pageSize,
-                                dataPageScanEnabled
+                                pageSize
                             ),
                             qryInfo
                         );
@@ -906,8 +899,6 @@ public class GridMapQueryExecutor {
                     res.lockTables();
                     res.checkTablesVersions();
 
-                    Boolean dataPageScanEnabled = isDataPageScanEnabled(req.flags());
-
                     GridQueryNextPageResponse msg = h2.executeWithResumableTimeTracking(
                         () -> prepareNextPage(
                             nodeRess,
@@ -915,8 +906,7 @@ public class GridMapQueryExecutor {
                             qryResults,
                             req.query(),
                             req.segmentId(),
-                            req.pageSize(),
-                            dataPageScanEnabled
+                            req.pageSize()
                         ),
                         res.qryInfo()
                     );
@@ -962,7 +952,6 @@ public class GridMapQueryExecutor {
      * @param qry Query.
      * @param segmentId Index segment ID.
      * @param pageSize Page size.
-     * @param dataPageScanEnabled If data page scan is enabled.
      * @return Next page.
      * @throws IgniteCheckedException If failed.
      */
@@ -972,8 +961,7 @@ public class GridMapQueryExecutor {
         MapQueryResults qr,
         int qry,
         int segmentId,
-        int pageSize,
-        Boolean dataPageScanEnabled) throws IgniteCheckedException {
+        int pageSize) throws IgniteCheckedException {
         MapQueryResult res = qr.result(qry);
 
         assert res != null;
@@ -985,7 +973,7 @@ public class GridMapQueryExecutor {
 
         List<Value[]> rows = new ArrayList<>(Math.min(64, pageSize));
 
-        boolean last = res.fetchNextPage(rows, pageSize, dataPageScanEnabled);
+        boolean last = res.fetchNextPage(rows, pageSize);
 
         if (last) {
             qr.closeResult(qry);

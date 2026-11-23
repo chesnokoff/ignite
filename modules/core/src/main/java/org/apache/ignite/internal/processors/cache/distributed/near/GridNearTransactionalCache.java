@@ -50,7 +50,6 @@ import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.plugin.security.SecurityPermission;
-import org.apache.ignite.transactions.TransactionIsolation;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -232,7 +231,6 @@ public class GridNearTransactionalCache<K, V> extends GridNearCacheAdapter<K, V>
                             entry.doneRemote(
                                 req.version(),
                                 req.version(),
-                                null,
                                 F.emptyIfNull(req.committedVersions()),
                                 F.emptyIfNull(req.rolledbackVersions()),
                                 /*system invalidate*/false);
@@ -291,10 +289,8 @@ public class GridNearTransactionalCache<K, V> extends GridNearCacheAdapter<K, V>
         long timeout,
         long waitTimeout,
         IgniteTxLocalEx tx,
-        boolean isInvalidate,
         boolean isRead,
         boolean retval,
-        TransactionIsolation isolation,
         long createTtl,
         long accessTtl
     ) {
