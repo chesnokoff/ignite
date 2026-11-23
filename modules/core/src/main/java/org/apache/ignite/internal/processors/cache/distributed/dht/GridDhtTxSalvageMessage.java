@@ -27,7 +27,7 @@ public class GridDhtTxSalvageMessage extends GridCacheMessage {
     @Order(0)
     GridCacheVersion ver;
 
-    /** Empty constructor. */
+    /** Creates an empty message. */
     public GridDhtTxSalvageMessage() {
         // No-op.
     }
