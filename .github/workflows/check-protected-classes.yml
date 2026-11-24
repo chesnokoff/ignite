@@ -38,6 +38,7 @@ jobs:
         with:
           script: |
             const label = 'compatibility';
+            const heading = '> [!IMPORTANT]\n> **Wire format changed**';
 
             const run = context.payload.workflow_run;
             const repo = context.repo;
@@ -72,10 +73,18 @@ jobs:
               return core.info('Could not identify the PR and its target branch.');
 
             const issue = {...repo, issue_number: target.number};
+            const comments = await list(issues.listComments, issue);
             const {data: pr} = await pulls.get({...repo, pull_number: target.number});
             if (pr.state !== 'open' || pr.head.repo?.id !== run.head_repository.id || pr.head.ref !== run.head_branch
               || pr.head.sha !== run.head_sha || pr.base.ref !== target.base.ref)
               return core.info('The PR has closed or changed since the comparison.');
+
+            for (const comment of comments) {
+              if (comment.user?.login === 'github-actions[bot]' && (comment.body?.startsWith(heading)
+                || comment.body?.startsWith('<!-- ignite-rolling-upgrade-check -->')
+                || comment.body?.startsWith('Wire format changed. Review the [wire diff in Job Summary](')))
+                await issues.deleteComment({...repo, comment_id: comment.id});
+            }
 
             const labeled = pr.labels.some(l => l.name === label);
             if (upload === 'skipped') {
@@ -89,8 +98,7 @@ jobs:
               await issues.addLabels({...issue, labels: [label]});
 
             const url = `${run.html_url}/attempts/${wire.run_attempt}#summary-${wire.id}`;
-            const body = `> [!IMPORTANT]
-            > **Wire format changed**
+            const body = `${heading}
             >
             > [Review the wire diff in Job Summary](${url}) before approving this PR. Check that the change is compatible with rolling upgrades.`;
             await issues.createComment({...issue, body});
