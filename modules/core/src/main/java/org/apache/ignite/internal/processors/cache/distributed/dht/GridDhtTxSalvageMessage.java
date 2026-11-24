@@ -27,11 +27,7 @@ public class GridDhtTxSalvageMessage extends GridCacheMessage {
     @Order(0)
     GridCacheVersion ver;
 
-    /** Protocol version used by the pilot. */
-    @Order(1)
-    int demoProtocolVersion;
-
-    /** Empty constructor. */
+    /** Creates an empty message. */
     public GridDhtTxSalvageMessage() {
         // No-op.
     }
