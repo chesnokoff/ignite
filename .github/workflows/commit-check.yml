@@ -106,11 +106,51 @@ jobs:
         run: |
           ./mvnw validate -Pall-java,lgpl,examples,check-licenses -B -V
 
+      - name: Select changed files for Checkstyle
+        if: github.event_name == 'pull_request'
+        id: checkstyle
+        continue-on-error: true # A failed comparison falls back to the full check.
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const {base, head} = context.payload.pull_request;
+            const {data: {files}} = await github.rest.repos.compareCommitsWithBasehead({
+              ...context.repo, basehead: `${base.sha}...${head.sha}`, per_page: 1
+            });
+
+            // The compare API returns at most 300 files, even when paginating commits.
+            const changesRules = path => path === '.github/workflows/commit-check.yml'
+              || /^(checkstyle\/|modules\/checkstyle\/|\.mvn\/)|(^|\/)pom\.xml$/.test(path);
+            if (files.length >= 300 || files.some(f => changesRules(f.filename) || changesRules(f.previous_filename))) {
+              core.info('Running full Checkstyle for a large diff or a build configuration change.');
+              return;
+            }
+
+            const paths = files.filter(f => f.status !== 'removed' && /\.(java|properties|xml)$/.test(f.filename))
+              .map(f => f.filename);
+            if (!paths.length) {
+              core.info('No Checkstyle inputs changed.');
+              core.setOutput('args', '-P!checkstyle');
+              return;
+            }
+
+            // Encode special characters as Java regex literals, doubling the backslash for Properties.load().
+            const literal = path => path.replace(/[^a-zA-Z0-9/_-]/gu,
+              c => String.raw`\\x{${c.codePointAt(0).toString(16)}}`);
+            const root = literal(process.env.GITHUB_WORKSPACE);
+            const pattern = `^(?!${root}/(?:${paths.map(literal).join('|')})\\\\z)`;
+            const properties = `${process.env.RUNNER_TEMP}/checkstyle-pr.properties`;
+            require('node:fs').writeFileSync(properties, `checkstyle.excludedPaths=${pattern}\n`);
+            core.info(`Checking ${paths.length} changed path(s) within the configured Checkstyle inputs.`);
+            core.setOutput('args', `-Pcheckstyle -Dcheckstyle.properties.location=${properties}`);
+
       - name: Run codestyle checks
+        env:
+          MAVEN_ARGS: ${{ steps.checkstyle.outputs.args || '-Pcheckstyle' }}
         run: |
           set -o pipefail
           rc=0
-          ./mvnw test-compile -Pall-java,licenses,lgpl,checkstyle,examples -B -V -T 1C 2>&1 | tee mvn-codestyle.log || rc=$?
+          ./mvnw test-compile -Pall-java,licenses,lgpl,examples -B -V -T 1C 2>&1 | tee mvn-codestyle.log || rc=$?
           if [ "$rc" -ne 0 ] && grep -q "COMPILATION ERROR" mvn-codestyle.log; then
             echo "::error title=Compilation failed::Java compilation failed - this is a compile error, not a checkstyle violation. The flood of 'cannot find symbol' for generated *Walker/*Serializer/*Factory classes is a cascade: javac drops annotation-processor output when compilation fails. Fix the real error(s) listed in the build log group below first."
             echo "::group::Likely root-cause compile errors (generated-class cascade filtered out)"

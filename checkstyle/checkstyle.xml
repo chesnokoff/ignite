@@ -24,6 +24,11 @@
 
     <property name="fileExtensions" value="java, properties, xml"/>
 
+    <!-- CI can restrict the audit to the files changed by a pull request. -->
+    <module name="BeforeExecutionExclusionFileFilter">
+        <property name="fileNamePattern" value="${checkstyle.excludedPaths}" default="(?!)"/>
+    </module>
+
     <!-- Suppressions. See: https://checkstyle.sourceforge.io/filters/suppressionfilter.html -->
     <module name="SuppressionFilter">
         <property name="file" value="${checkstyle.suppressions.file}"/>
